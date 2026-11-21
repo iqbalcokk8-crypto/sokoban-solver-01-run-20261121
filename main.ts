@@ -29,6 +29,14 @@ const INPUT = process.env.MAKEFUN_INPUT_DIR ?? '/input';
 const OUTPUT = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 /** Most states one push search keeps before it gives up (work, never time). */
 const MAX_STATES = 250_000;
+/**
+ * Most states the whole-level fallback keeps. Rooms always decompose on
+ * levels this generator draws (and a room search needs at most MAX_STATES),
+ * so the fallback only ever runs on a level outside the generator's shape;
+ * a smaller cap bounds its memory (~half the room cap's) while still far
+ * above what any small whole level needs (under 10,000 states observed).
+ */
+const FALLBACK_MAX_STATES = 120_000;
 
 /** [dx, dy, walk letter, push letter]: up, down, left, right, in this order. */
 const DIRS: [number, number, string, string][] = [
@@ -352,7 +360,7 @@ function roomsOf(level: Level): Room[] | null {
  */
 function solveByRooms(level: Level): { pushes: number; moves: string } | null {
   const rooms = roomsOf(level);
-  if (rooms === null) return solvePushOptimal(level);
+  if (rooms === null) return solvePushOptimal(level, FALLBACK_MAX_STATES);
   let player = level.player;
   let pushes = 0;
   let moves = '';
@@ -371,7 +379,7 @@ function solveByRooms(level: Level): { pushes: number; moves: string } | null {
       player,
     };
     const solved = solvePushOptimal(sub);
-    if (solved === null) return solvePushOptimal(level);
+    if (solved === null) return solvePushOptimal(level, FALLBACK_MAX_STATES);
     pushes += solved.pushes;
     moves += solved.moves;
     player = endOf(level.w, player, solved.moves);
